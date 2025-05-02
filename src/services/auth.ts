@@ -1,4 +1,5 @@
-// Authentication service for handling user authentication
+// Authentication service for handling user authentication with Supabase
+import { supabase } from "../lib/supabase";
 
 export interface User {
   id: string;
@@ -15,112 +16,103 @@ export interface SignUpData extends AuthCredentials {
   name?: string;
 }
 
-// Mock user storage for demo purposes
-const USERS_STORAGE_KEY = "expense_tracker_users";
-const CURRENT_USER_KEY = "expense_tracker_current_user";
-
-// Helper to get users from localStorage
-const getStoredUsers = (): Record<string, User & { password: string }> => {
-  const usersJson = localStorage.getItem(USERS_STORAGE_KEY);
-  return usersJson ? JSON.parse(usersJson) : {};
-};
-
-// Helper to save users to localStorage
-const saveUsers = (users: Record<string, User & { password: string }>) => {
-  localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
-};
-
 /**
  * Sign up a new user
  */
 export const signUp = async (data: SignUpData): Promise<User> => {
-  // In a real app, this would be an API call
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      try {
-        const users = getStoredUsers();
+  const { email, password, name } = data;
 
-        // Check if user already exists
-        if (users[data.email]) {
-          reject(new Error("User already exists"));
-          return;
-        }
-
-        // Create new user
-        const newUser: User & { password: string } = {
-          id: crypto.randomUUID(),
-          email: data.email,
-          name: data.name,
-          password: data.password, // In a real app, this would be hashed
-        };
-
-        // Save user
-        users[data.email] = newUser;
-        saveUsers(users);
-
-        // Save current user session
-        const { password, ...userWithoutPassword } = newUser;
-        localStorage.setItem(
-          CURRENT_USER_KEY,
-          JSON.stringify(userWithoutPassword),
-        );
-
-        resolve(userWithoutPassword);
-      } catch (error) {
-        reject(error);
-      }
-    }, 500); // Simulate network delay
+  const { data: authData, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        name,
+      },
+    },
   });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!authData.user) {
+    throw new Error("Failed to create user");
+  }
+
+  return {
+    id: authData.user.id,
+    email: authData.user.email || "",
+    name: authData.user.user_metadata?.name,
+  };
 };
 
 /**
  * Log in an existing user
  */
 export const login = async (credentials: AuthCredentials): Promise<User> => {
-  // In a real app, this would be an API call
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      try {
-        const users = getStoredUsers();
-        const user = users[credentials.email];
+  const { email, password } = credentials;
 
-        // Check if user exists and password matches
-        if (!user || user.password !== credentials.password) {
-          reject(new Error("Invalid email or password"));
-          return;
-        }
-
-        // Save current user session
-        const { password, ...userWithoutPassword } = user;
-        localStorage.setItem(
-          CURRENT_USER_KEY,
-          JSON.stringify(userWithoutPassword),
-        );
-
-        resolve(userWithoutPassword);
-      } catch (error) {
-        reject(error);
-      }
-    }, 500); // Simulate network delay
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
   });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!data.user) {
+    throw new Error("Failed to login");
+  }
+
+  return {
+    id: data.user.id,
+    email: data.user.email || "",
+    name: data.user.user_metadata?.name,
+  };
 };
 
 /**
  * Log out the current user
  */
 export const logout = async (): Promise<void> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      localStorage.removeItem(CURRENT_USER_KEY);
-      resolve();
-    }, 300);
-  });
+  const { error } = await supabase.auth.signOut();
+
+  if (error) {
+    throw new Error(error.message);
+  }
 };
 
 /**
  * Get the current logged in user
  */
 export const getCurrentUser = (): User | null => {
-  const userJson = localStorage.getItem(CURRENT_USER_KEY);
-  return userJson ? JSON.parse(userJson) : null;
+  const { data } = supabase.auth.getSession();
+  const user = supabase.auth.getUser();
+
+  if (!user) {
+    return null;
+  }
+
+  // This is a synchronous function but Supabase auth.getUser() is async
+  // For now, we'll return null and let the AuthContext handle the async check
+  return null;
+};
+
+/**
+ * Get the current logged in user asynchronously
+ */
+export const getCurrentUserAsync = async (): Promise<User | null> => {
+  const { data, error } = await supabase.auth.getUser();
+
+  if (error || !data.user) {
+    return null;
+  }
+
+  return {
+    id: data.user.id,
+    email: data.user.email || "",
+    name: data.user.user_metadata?.name,
+  };
 };

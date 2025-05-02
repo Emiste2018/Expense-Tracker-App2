@@ -66,8 +66,10 @@ const categories = [
 
 const ExpenseForm = ({
   open = true,
-  onOpenChange,
-  onSubmit,
+  onOpenChange = () => {},
+  onSubmit = (data: FormValues) => {
+    console.log("Form submitted:", data);
+  },
   defaultValues = {
     amount: "",
     date: new Date(),
@@ -90,9 +92,14 @@ const ExpenseForm = ({
   });
 
   const handleFormSubmit = (data: FormValues) => {
-    onSubmit?.(data);
+    onSubmit(data);
     reset();
-    onOpenChange?.(false);
+    onOpenChange(false);
+  };
+
+  const handleCancel = () => {
+    reset();
+    onOpenChange(false);
   };
 
   return (
@@ -190,11 +197,7 @@ const ExpenseForm = ({
           </div>
 
           <DialogFooter>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange?.(false)}
-            >
+            <Button type="button" variant="outline" onClick={handleCancel}>
               Cancel
             </Button>
             <Button type="submit">

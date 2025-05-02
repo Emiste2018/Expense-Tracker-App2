@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   Card,
   CardContent,
@@ -13,6 +13,8 @@ import {
   DollarSignIcon,
 } from "lucide-react";
 import ExpenseChart from "./ExpenseChart";
+import { getCategoryTotals, getMonthlyTotals } from "../services/expenses";
+import { useAuth } from "../contexts/AuthContext";
 
 interface DashboardProps {
   totalSpending?: number;
@@ -36,29 +38,78 @@ interface DashboardProps {
   }>;
 }
 
-const Dashboard = ({
-  totalSpending = 1250.75,
-  biggestCategory = { name: "Food", amount: 450.25 },
-  monthlyComparison = {
-    currentMonth: 1250.75,
-    previousMonth: 1100.5,
-    percentageChange: 13.65,
-  },
-  categoryData = [
-    { name: "Food", value: 450.25, color: "#FF6384" },
-    { name: "Transport", value: 350.5, color: "#36A2EB" },
-    { name: "Entertainment", value: 250.75, color: "#FFCE56" },
-    { name: "Utilities", value: 120.25, color: "#4BC0C0" },
-    { name: "Shopping", value: 80.0, color: "#9966FF" },
-  ],
-  trendData = [
-    { date: "Jan", amount: 950.5 },
-    { date: "Feb", amount: 1050.25 },
-    { date: "Mar", amount: 980.75 },
-    { date: "Apr", amount: 1100.5 },
-    { date: "May", amount: 1250.75 },
-  ],
-}: DashboardProps) => {
+const Dashboard = ({}: DashboardProps) => {
+  const { user } = useAuth();
+  const [isLoading, setIsLoading] = useState(true);
+  const [totalSpending, setTotalSpending] = useState(0);
+  const [biggestCategory, setBiggestCategory] = useState({
+    name: "",
+    amount: 0,
+  });
+  const [monthlyComparison, setMonthlyComparison] = useState({
+    currentMonth: 0,
+    previousMonth: 0,
+    percentageChange: 0,
+  });
+  const [categoryData, setCategoryData] = useState<
+    Array<{ name: string; value: number; color: string }>
+  >([]);
+  const [trendData, setTrendData] = useState<
+    Array<{ date: string; amount: number }>
+  >([]);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        setIsLoading(true);
+
+        // Fetch category data
+        const categories = await getCategoryTotals();
+        setCategoryData(categories);
+
+        // Calculate total spending
+        const total = categories.reduce(
+          (sum, category) => sum + category.value,
+          0,
+        );
+        setTotalSpending(total);
+
+        // Find biggest category
+        if (categories.length > 0) {
+          const biggest = categories.reduce((prev, current) =>
+            prev.value > current.value ? prev : current,
+          );
+          setBiggestCategory({ name: biggest.name, amount: biggest.value });
+        }
+
+        // Fetch monthly trend data
+        const monthlyData = await getMonthlyTotals(5);
+        setTrendData(monthlyData);
+
+        // Calculate monthly comparison
+        if (monthlyData.length >= 2) {
+          const currentMonth = monthlyData[monthlyData.length - 1].amount;
+          const previousMonth = monthlyData[monthlyData.length - 2].amount;
+          const percentageChange =
+            previousMonth > 0
+              ? ((currentMonth - previousMonth) / previousMonth) * 100
+              : 0;
+
+          setMonthlyComparison({
+            currentMonth,
+            previousMonth,
+            percentageChange,
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, [user]);
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("en-US", {
       style: "currency",
@@ -139,8 +190,12 @@ const Dashboard = ({
               Your spending by category this month
             </CardDescription>
           </CardHeader>
-          <CardContent className="h-[300px]">
-            <ExpenseChart type="pie" data={categoryData} />
+          <CardContent className="h-[350px]">
+            <ExpenseChart
+              type="bar"
+              data={categoryData}
+              title="Category Breakdown"
+            />
           </CardContent>
         </Card>
 
@@ -152,8 +207,12 @@ const Dashboard = ({
               Your spending over the last 5 months
             </CardDescription>
           </CardHeader>
-          <CardContent className="h-[300px]">
-            <ExpenseChart type="line" data={trendData} />
+          <CardContent className="h-[350px]">
+            <ExpenseChart
+              type="line"
+              data={trendData}
+              title="Spending Trends"
+            />
           </CardContent>
         </Card>
       </div>

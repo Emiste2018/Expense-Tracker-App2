@@ -116,8 +116,8 @@ export default function Footer() {
             </ul>
           </div>
         </div>
-        <div className="mt-8 border-t border-border/40 pt-8 flex flex-col md:flex-row justify-between items-center">
-          <p className="text-xs text-muted-foreground">
+        <div className="mt-8 border-t border-border/40 pt-8 flex flex-col items-center">
+          <p className="text-xs text-muted-foreground text-center">
             © {new Date().getFullYear()} ExpenseTracker. All rights reserved.
           </p>
           <div className="flex space-x-4 mt-4 md:mt-0">

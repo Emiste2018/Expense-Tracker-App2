@@ -10,8 +10,9 @@ import {
   login as authLogin,
   signUp as authSignUp,
   logout as authLogout,
-  getCurrentUser,
+  getCurrentUserAsync,
 } from "../services/auth";
+import { supabase } from "../lib/supabase";
 
 interface AuthContextType {
   user: User | null;
@@ -45,9 +46,36 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
 
   useEffect(() => {
     // Check if user is already logged in
-    const currentUser = getCurrentUser();
-    setUser(currentUser);
-    setIsLoading(false);
+    const checkUser = async () => {
+      try {
+        const currentUser = await getCurrentUserAsync();
+        setUser(currentUser);
+      } catch (err) {
+        console.error("Error checking authentication:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkUser();
+
+    // Set up auth state change listener
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        const currentUser = await getCurrentUserAsync();
+        setUser(currentUser);
+      } else {
+        setUser(null);
+      }
+      setIsLoading(false);
+    });
+
+    // Cleanup subscription
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const login = async (email: string, password: string) => {

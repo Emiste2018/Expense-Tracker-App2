@@ -1,5 +1,6 @@
 import { Button } from "./ui/button";
 import { ArrowRight } from "lucide-react";
+import { Link } from "react-router-dom";
 
 export default function LandingPage() {
   return (
@@ -16,12 +17,14 @@ export default function LandingPage() {
             financial habits.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Button size="lg" className="bg-blue-600 hover:bg-blue-700">
-              Get Started
-              <ArrowRight className="ml-2 h-5 w-5" />
+            <Button size="lg" className="bg-blue-600 hover:bg-blue-700" asChild>
+              <Link to="/signup">
+                Get Started
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Link>
             </Button>
-            <Button size="lg" variant="outline">
-              Learn More
+            <Button size="lg" variant="outline" asChild>
+              <Link to="/features">Learn More</Link>
             </Button>
           </div>
         </div>
@@ -67,8 +70,8 @@ export default function LandingPage() {
             Join thousands of users who have transformed their financial habits
             with our app.
           </p>
-          <Button size="lg" className="bg-blue-600 hover:bg-blue-700">
-            Sign Up Now
+          <Button size="lg" className="bg-blue-600 hover:bg-blue-700" asChild>
+            <Link to="/signup">Sign Up Now</Link>
           </Button>
         </div>
       </section>
