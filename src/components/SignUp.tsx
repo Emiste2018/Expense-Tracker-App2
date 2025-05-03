@@ -52,10 +52,13 @@ export default function SignUp() {
     clearError();
     setIsSubmitting(true);
     try {
-      await signUp(data.email, data.password, data.name);
-      navigate("/dashboard");
+      const user = await signUp(data.email, data.password, data.name);
+      if (user) {
+        navigate("/dashboard");
+      }
     } catch (err) {
       console.error("Sign up error:", err);
+      // Error is already set in the context
     } finally {
       setIsSubmitting(false);
     }

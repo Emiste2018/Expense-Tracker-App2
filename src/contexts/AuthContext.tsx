@@ -19,21 +19,17 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
-  login: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, name?: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User | null>;
+  signUp: (
+    email: string,
+    password: string,
+    name?: string,
+  ) => Promise<User | null>;
   logout: () => Promise<void>;
   clearError: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error("useAuth must be used within an AuthProvider");
-  }
-  return context;
-};
 
 interface AuthProviderProps {
   children: ReactNode;
@@ -84,8 +80,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     try {
       const user = await authLogin({ email, password });
       setUser(user);
+      return user; // Return the user object
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to login");
+      throw err; // Re-throw the error to be caught by the component
     } finally {
       setIsLoading(false);
     }
@@ -97,8 +95,10 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
     try {
       const user = await authSignUp({ email, password, name });
       setUser(user);
+      return user; // Return the user object
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to sign up");
+      throw err; // Re-throw the error to be caught by the component
     } finally {
       setIsLoading(false);
     }
@@ -130,4 +130,12 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+};
+
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
 };

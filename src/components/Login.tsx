@@ -45,10 +45,13 @@ export default function Login() {
     clearError();
     setIsSubmitting(true);
     try {
-      await login(data.email, data.password);
-      navigate(from, { replace: true });
+      const user = await login(data.email, data.password);
+      if (user) {
+        navigate(from, { replace: true });
+      }
     } catch (err) {
       console.error("Login error:", err);
+      // Error is already set in the context
     } finally {
       setIsSubmitting(false);
     }

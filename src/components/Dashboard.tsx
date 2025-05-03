@@ -11,9 +11,21 @@ import {
   ArrowDownIcon,
   TrendingUpIcon,
   DollarSignIcon,
+  PlusIcon,
 } from "lucide-react";
 import ExpenseChart from "./ExpenseChart";
-import { getCategoryTotals, getMonthlyTotals } from "../services/expenses";
+import ExpenseList from "./ExpenseList";
+import ExpenseForm from "./ExpenseForm";
+import { Button } from "@/components/ui/button";
+import {
+  getCategoryTotals,
+  getMonthlyTotals,
+  fetchExpenses,
+  deleteExpense,
+  updateExpense,
+  addExpense,
+  Expense,
+} from "../services/expenses";
 import { useAuth } from "../contexts/AuthContext";
 
 interface DashboardProps {
@@ -41,6 +53,7 @@ interface DashboardProps {
 const Dashboard = ({}: DashboardProps) => {
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [totalSpending, setTotalSpending] = useState(0);
   const [biggestCategory, setBiggestCategory] = useState({
     name: "",
@@ -57,11 +70,21 @@ const Dashboard = ({}: DashboardProps) => {
   const [trendData, setTrendData] = useState<
     Array<{ date: string; amount: number }>
   >([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [showAddExpenseForm, setShowAddExpenseForm] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
 
   useEffect(() => {
+    if (!user) return;
+
     const fetchDashboardData = async () => {
       try {
         setIsLoading(true);
+        setError(null);
+
+        // Fetch all expenses
+        const allExpenses = await fetchExpenses();
+        setExpenses(allExpenses);
 
         // Fetch category data
         const categories = await getCategoryTotals();
@@ -103,6 +126,7 @@ const Dashboard = ({}: DashboardProps) => {
         }
       } catch (error) {
         console.error("Error fetching dashboard data:", error);
+        setError("Failed to load dashboard data. Please try again later.");
       } finally {
         setIsLoading(false);
       }
@@ -117,8 +141,98 @@ const Dashboard = ({}: DashboardProps) => {
     }).format(amount);
   };
 
+  const handleAddExpense = async (data: any) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Convert string amount to number
+      const expenseData = {
+        ...data,
+        amount: parseFloat(data.amount),
+      };
+
+      await addExpense(expenseData);
+
+      // Refresh dashboard data
+      const allExpenses = await fetchExpenses();
+      setExpenses(allExpenses);
+
+      const categories = await getCategoryTotals();
+      setCategoryData(categories);
+
+      const total = categories.reduce(
+        (sum, category) => sum + category.value,
+        0,
+      );
+      setTotalSpending(total);
+
+      const monthlyData = await getMonthlyTotals(5);
+      setTrendData(monthlyData);
+
+      setShowAddExpenseForm(false);
+    } catch (error) {
+      console.error("Error adding expense:", error);
+      setError("Failed to add expense. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleEditExpense = (expense: Expense) => {
+    setEditingExpense(expense);
+    setShowAddExpenseForm(true);
+  };
+
+  const handleDeleteExpense = async (id: string) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      await deleteExpense(id);
+
+      // Refresh dashboard data
+      const allExpenses = await fetchExpenses();
+      setExpenses(allExpenses);
+
+      const categories = await getCategoryTotals();
+      setCategoryData(categories);
+
+      const total = categories.reduce(
+        (sum, category) => sum + category.value,
+        0,
+      );
+      setTotalSpending(total);
+
+      const monthlyData = await getMonthlyTotals(5);
+      setTrendData(monthlyData);
+    } catch (error) {
+      console.error("Error deleting expense:", error);
+      setError("Failed to delete expense. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="w-full p-6 space-y-6 bg-background">
+      {isLoading && (
+        <div className="text-center py-4">Loading dashboard data...</div>
+      )}
+      {error && <div className="text-center py-4 text-red-500">{error}</div>}
+
+      {/* Add Expense Button */}
+      <div className="flex justify-end">
+        <Button
+          onClick={() => {
+            setEditingExpense(null);
+            setShowAddExpenseForm(true);
+          }}
+        >
+          <PlusIcon className="mr-2 h-4 w-4" /> Add Expense
+        </Button>
+      </div>
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Total Spending Card */}
@@ -192,7 +306,7 @@ const Dashboard = ({}: DashboardProps) => {
           </CardHeader>
           <CardContent className="h-[350px]">
             <ExpenseChart
-              type="bar"
+              type="pie"
               data={categoryData}
               title="Category Breakdown"
             />
@@ -216,6 +330,33 @@ const Dashboard = ({}: DashboardProps) => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Recent Transactions */}
+      <div className="mt-6">
+        <ExpenseList
+          expenses={expenses}
+          onEdit={handleEditExpense}
+          onDelete={handleDeleteExpense}
+        />
+      </div>
+
+      {/* Add/Edit Expense Form */}
+      <ExpenseForm
+        open={showAddExpenseForm}
+        onOpenChange={setShowAddExpenseForm}
+        onSubmit={handleAddExpense}
+        isEditing={!!editingExpense}
+        defaultValues={
+          editingExpense
+            ? {
+                amount: editingExpense.amount.toString(),
+                date: new Date(editingExpense.date),
+                category: editingExpense.category.toLowerCase(),
+                description: editingExpense.description,
+              }
+            : undefined
+        }
+      />
     </div>
   );
 };

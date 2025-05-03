@@ -17,9 +17,19 @@ export interface ExpenseInput {
 }
 
 export const fetchExpenses = async (): Promise<Expense[]> => {
+  // Get current user
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return [];
+  }
+
   const { data, error } = await supabase
     .from("expenses")
     .select("*")
+    .eq("user_id", user.id)
     .order("date", { ascending: false });
 
   if (error) {
@@ -57,11 +67,21 @@ export const fetchExpensesByDateRange = async (
 };
 
 export const addExpense = async (expense: ExpenseInput): Promise<Expense> => {
+  // Get current user
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    throw new Error("User not authenticated");
+  }
+
   const { data, error } = await supabase
     .from("expenses")
     .insert([
       {
         ...expense,
+        user_id: user.id,
         date: expense.date.toISOString().split("T")[0],
       },
     ])
@@ -121,7 +141,19 @@ export const getCategoryTotals = async (
   startDate?: Date,
   endDate?: Date,
 ): Promise<{ name: string; value: number; color: string }[]> => {
-  let query = supabase.from("expenses").select("category, amount");
+  // Get current user
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return [];
+  }
+
+  let query = supabase
+    .from("expenses")
+    .select("category, amount")
+    .eq("user_id", user.id);
 
   if (startDate) {
     query = query.gte("date", startDate.toISOString().split("T")[0]);
@@ -169,6 +201,15 @@ export const getCategoryTotals = async (
 export const getMonthlyTotals = async (
   months: number = 5,
 ): Promise<{ date: string; amount: number }[]> => {
+  // Get current user
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return [];
+  }
+
   // Calculate start date (X months ago from today)
   const startDate = new Date();
   startDate.setMonth(startDate.getMonth() - months + 1);
@@ -177,6 +218,7 @@ export const getMonthlyTotals = async (
   const { data, error } = await supabase
     .from("expenses")
     .select("date, amount")
+    .eq("user_id", user.id)
     .gte("date", startDate.toISOString().split("T")[0]);
 
   if (error) {
